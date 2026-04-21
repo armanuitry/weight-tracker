@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weight Tracker</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; color: #333; }
+  header { background: #2c7be5; color: white; padding: 20px 32px; }
+  header h1 { font-size: 1.5rem; }
+  .container { max-width: 960px; margin: 32px auto; padding: 0 24px; }
+  .card { background: white; border-radius: 12px; padding: 24px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+  h2 { font-size: 1rem; font-weight: 600; margin-bottom: 16px; color: #444; }
+  .form-row { display: flex; gap: 12px; flex-wrap: wrap; }
+  select, input[type=number], input[type=text] {
+    padding: 10px 14px; border: 1.5px solid #d1d9e0; border-radius: 8px;
+    font-size: 0.95rem; flex: 1; min-width: 140px;
+  }
+  button {
+    background: #2c7be5; color: white; border: none; padding: 10px 24px;
+    border-radius: 8px; font-size: 0.95rem; cursor: pointer; transition: background 0.2s;
+  }
+  button:hover { background: #1a6acf; }
+  .status { margin-top: 12px; font-size: 0.9rem; color: #2c7be5; min-height: 20px; }
+  .filter-row { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+  .filter-row label { font-size: 0.9rem; color: #666; }
+  canvas { max-height: 380px; }
+  .add-user-row { display: flex; gap: 8px; margin-top: 12px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⚖️ Weight Tracker — Keluarga</h1>
+</header>
+
+<div class="container">
+
+  <!-- INPUT FORM -->
+  <div class="card">
+    <h2>📝 Input Berat Badan Hari Ini</h2>
+    <div class="form-row">
+      <select id="selectName">
+        <option value="">— Pilih Nama —</option>
+      </select>
+      <input type="number" id="inputWeight" placeholder="Berat (kg), contoh: 68.5" step="0.1" min="20" max="300">
+      <button onclick="submitWeight()">Simpan</button>
+    </div>
+    <div class="add-user-row">
+      <input type="text" id="inputNewName" placeholder="Tambah nama baru...">
+      <button onclick="addUser()" style="background:#34b87a;">+ Tambah</button>
+    </div>
+    <div class="status" id="statusMsg"></div>
+  </div>
+
+  <!-- GRAFIK -->
+  <div class="card">
+    <h2>📈 Grafik Berat Badan</h2>
+    <div class="filter-row">
+      <label>Tampilkan:</label>
+      <select id="filterName" onchange="renderChart()">
+        <option value="all">Semua Orang</option>
+      </select>
+      <select id="filterRange" onchange="renderChart()">
+        <option value="30">30 hari terakhir</option>
+        <option value="60">60 hari terakhir</option>
+        <option value="90">90 hari terakhir</option>
+        <option value="0">Semua data</option>
+      </select>
+    </div>
+    <canvas id="weightChart"></canvas>
+  </div>
+
+</div>
+
+<script>
+const API_URL = "https://script.google.com/macros/s/AKfycbz7GmqGueqEUkjL2F64vf8YnUp8_3O690xbhrPQqBkeL7nvqcNrlkWBhWKSi45myKB9/exec";
+let allData = [];
+let chartInstance = null;
+let userList = JSON.parse(localStorage.getItem("wt_users") || '["Ayah","Ibu"]');
+
+const COLORS = ["#2c7be5","#e5632c","#34b87a","#e5b82c","#9b59b6","#1abc9c","#e74c3c","#3498db","#f39c12","#2ecc71"];
+
+function saveUsers() { localStorage.setItem("wt_users", JSON.stringify(userList)); }
+
+function populateUserDropdowns() {
+  const sel = document.getElementById("selectName");
+  const flt = document.getElementById("filterName");
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">— Pilih Nama —</option>';
+  flt.innerHTML = '<option value="all">Semua Orang</option>';
+  userList.forEach(name => {
+    sel.innerHTML += `<option value="${name}">${name}</option>`;
+    flt.innerHTML += `<option value="${name}">${name}</option>`;
+  });
+  sel.value = prev;
+}
+
+function addUser() {
+  const name = document.getElementById("inputNewName").value.trim();
+  if (!name) return;
+  if (userList.includes(name)) { alert("Nama sudah ada."); return; }
+  userList.push(name);
+  saveUsers();
+  populateUserDropdowns();
+  document.getElementById("inputNewName").value = "";
+}
+
+async function submitWeight() {
+  const name = document.getElementById("selectName").value;
+  const weight = parseFloat(document.getElementById("inputWeight").value);
+  const msg = document.getElementById("statusMsg");
+  if (!name) { msg.textContent = "⚠️ Pilih nama terlebih dahulu."; return; }
+  if (!weight || weight < 20) { msg.textContent = "⚠️ Masukkan berat badan yang valid."; return; }
+  msg.textContent = "⏳ Menyimpan...";
+  try {
+    await fetch(API_URL, {
+      method: "POST", mode: "no-cors",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({name, weight})
+    });
+    msg.textContent = `✅ Berat ${weight} kg untuk ${name} berhasil disimpan!`;
+    document.getElementById("inputWeight").value = "";
+    setTimeout(loadData, 1500);
+  } catch(err) {
+    msg.textContent = "❌ Gagal menyimpan. Cek koneksi internet.";
+  }
+}
+
+async function loadData() {
+  try {
+    const res = await fetch(API_URL);
+    allData = await res.json();
+    renderChart();
+  } catch(e) { console.warn("Gagal load data:", e); }
+}
+
+function renderChart() {
+  const filterName = document.getElementById("filterName").value;
+  const days = parseInt(document.getElementById("filterRange").value);
+  const cutoff = days > 0 ? new Date(Date.now() - days * 86400000) : new Date(0);
+
+  const filtered = allData.filter(d => {
+    const inRange = new Date(d.timestamp) >= cutoff;
+    const inName = filterName === "all" || d.name === filterName;
+    return inRange && inName;
+  });
+
+  const names = filterName === "all" ? [...new Set(filtered.map(d => d.name))] : [filterName];
+  const allDates = [...new Set(filtered.map(d => d.timestamp.slice(0,10)))].sort();
+
+  const datasets = names.map((name, i) => {
+    const personData = filtered.filter(d => d.name === name);
+    const dataMap = {};
+    personData.forEach(d => { dataMap[d.timestamp.slice(0,10)] = d.weight; });
+    return {
+      label: name,
+      data: allDates.map(date => dataMap[date] ?? null),
+      borderColor: COLORS[i % COLORS.length],
+      backgroundColor: COLORS[i % COLORS.length] + "22",
+      borderWidth: 2.5,
+      pointRadius: 4,
+      tension: 0.3,
+      spanGaps: true
+    };
+  });
+
+  if (chartInstance) chartInstance.destroy();
+  chartInstance = new Chart(document.getElementById("weightChart"), {
+    type: "line",
+    data: { labels: allDates, datasets },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: "top" } },
+      scales: {
+        y: { title: { display: true, text: "Berat (kg)" }, beginAtZero: false }
+      }
+    }
+  });
+}
+
+// Init
+populateUserDropdowns();
+loadData();
+</script>
+</body>
+</html>
