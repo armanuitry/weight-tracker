@@ -7,7 +7,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Poppins', Poppins; background: #f0f4f8; color: #333; }
+  body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; color: #333; }
   header { background: #2c7be5; color: white; padding: 20px 32px; }
   header h1 { font-size: 1.5rem; }
   .container { max-width: 960px; margin: 32px auto; padding: 0 24px; }
@@ -74,11 +74,12 @@
 </div>
 
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycbyQJ7SIBEKYsnshxr22I5GR1joIIPTPsVdt7_ib4Cuiq3x__usAK23tbAeIS9qZKN7N/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbyaul-MSSmZDUIMtV63uKFjc_I0YnhfzJRK5HdoaIUH7ejiwDoGpdl6uNP6yaxm1oiG/exec";
+const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTxqnimbFqzsIqLRW0gznYBkoMOVXG6dOUljKGw3MDsvYBCQcGXdii3dHN3QmgJuDqKPPWg6ZKCMox4/pub?gid=0&single=true&output=csv";
+
 let allData = [];
 let chartInstance = null;
 let userList = JSON.parse(localStorage.getItem("wt_users") || '[]');
-
 const COLORS = ["#2c7be5","#e5632c","#34b87a","#e5b82c","#9b59b6","#1abc9c","#e74c3c","#3498db","#f39c12","#2ecc71"];
 
 function saveUsers() { localStorage.setItem("wt_users", JSON.stringify(userList)); }
@@ -121,20 +122,29 @@ async function submitWeight() {
     });
     msg.textContent = `✅ Berat ${weight} kg untuk ${name} berhasil disimpan!`;
     document.getElementById("inputWeight").value = "";
-    setTimeout(loadData, 1500);
+    setTimeout(loadData, 2000);
   } catch(err) {
     msg.textContent = "❌ Gagal menyimpan. Cek koneksi internet.";
   }
 }
 
-function loadData() {
-  const script = document.createElement("script");
-  window.handleWeightData = function(data) {
-    allData = data;
+async function loadData() {
+  try {
+    const res = await fetch(CSV_URL + "&t=" + Date.now());
+    const text = await res.text();
+    const rows = text.trim().split("\n").slice(1);
+    allData = rows.map(row => {
+      const cols = row.split(",");
+      return {
+        timestamp: cols[0]?.trim().replace(/"/g,""),
+        name: cols[1]?.trim().replace(/"/g,""),
+        weight: parseFloat(cols[2]?.trim().replace(/"/g,""))
+      };
+    }).filter(d => d.name && !isNaN(d.weight));
     renderChart();
-  };
-  script.src = API_URL + "?callback=handleWeightData";
-  document.body.appendChild(script);
+  } catch(e) {
+    console.warn("Gagal load data:", e);
+  }
 }
 
 function renderChart() {
