@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Weight Tracker</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; color: #333; }
+  body { font-family: 'Poppins', Poppins; background: #f0f4f8; color: #333; }
   header { background: #2c7be5; color: white; padding: 20px 32px; }
   header h1 { font-size: 1.5rem; }
   .container { max-width: 960px; margin: 32px auto; padding: 0 24px; }
@@ -33,12 +33,11 @@
 <body>
 
 <header>
-  <h1>⚖️ Weight Tracker — Tim Nasi</h1>
+  <h1>⚖️ Weight Tracker</h1>
 </header>
 
 <div class="container">
 
-  <!-- INPUT FORM -->
   <div class="card">
     <h2>📝 Input Berat Badan Hari Ini</h2>
     <div class="form-row">
@@ -55,7 +54,6 @@
     <div class="status" id="statusMsg"></div>
   </div>
 
-  <!-- GRAFIK -->
   <div class="card">
     <h2>📈 Grafik Berat Badan</h2>
     <div class="filter-row">
@@ -76,10 +74,10 @@
 </div>
 
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycbz7GmqGueqEUkjL2F64vf8YnUp8_3O690xbhrPQqBkeL7nvqcNrlkWBhWKSi45myKB9/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbyQJ7SIBEKYsnshxr22I5GR1joIIPTPsVdt7_ib4Cuiq3x__usAK23tbAeIS9qZKN7N/exec";
 let allData = [];
 let chartInstance = null;
-let userList = JSON.parse(localStorage.getItem("wt_users") || '["Ivan","Agi","Arman","Iksan","Aul","Erin","Arai","Ave"]');
+let userList = JSON.parse(localStorage.getItem("wt_users") || '[]');
 
 const COLORS = ["#2c7be5","#e5632c","#34b87a","#e5b82c","#9b59b6","#1abc9c","#e74c3c","#3498db","#f39c12","#2ecc71"];
 
@@ -129,12 +127,14 @@ async function submitWeight() {
   }
 }
 
-async function loadData() {
-  try {
-    const res = await fetch(API_URL);
-    allData = await res.json();
+function loadData() {
+  const script = document.createElement("script");
+  window.handleWeightData = function(data) {
+    allData = data;
     renderChart();
-  } catch(e) { console.warn("Gagal load data:", e); }
+  };
+  script.src = API_URL + "?callback=handleWeightData";
+  document.body.appendChild(script);
 }
 
 function renderChart() {
@@ -181,7 +181,6 @@ function renderChart() {
   });
 }
 
-// Init
 populateUserDropdowns();
 loadData();
 </script>
